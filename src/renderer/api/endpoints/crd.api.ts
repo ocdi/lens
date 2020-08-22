@@ -1,6 +1,8 @@
 import { KubeObject } from "../kube-object";
-import { KubeApi } from "../kube-api";
+import { KubeApi, createKubeApiURL, IKubeApiQueryParams } from "../kube-api";
+import { stringify } from "querystring";
 import { crdResourcesURL } from "../../components/+custom-resources/crd.route";
+import { getHostedCluster } from "../../../common/cluster-store";
 
 type AdditionalPrinterColumnsCommon = {
   name: string;
@@ -146,14 +148,26 @@ export class CustomResourceDefinition extends KubeObject {
   }
 }
 
-export const crdBetaApi = new KubeApi<CustomResourceDefinition>({
-  kind: CustomResourceDefinition.kind,
-  apiBase: "/apis/apiextensions.k8s.io/v1beta1/customresourcedefinitions",
-  isNamespaced: false,
-  objectConstructor: CustomResourceDefinition,
-});
+class VersionedKubeApi<T extends KubeObject = any> extends KubeApi<T> {
 
-export const crdApi = new KubeApi<CustomResourceDefinition>({
+
+  getUrl({ name = "", namespace = "" } = {}, query?: Partial<IKubeApiQueryParams>) {
+    const { apiPrefix, apiGroup, apiResource } = this;
+
+    const v = getHostedCluster().version < 'v1.16' ? 'v1beta1' : 'v1';
+
+    const resourcePath = createKubeApiURL({
+      apiPrefix: apiPrefix,
+      apiVersion: apiGroup + '/' + v,
+      resource: apiResource,
+      namespace: this.isNamespaced ? namespace : undefined,
+      name: name,
+    });
+    return resourcePath + (query ? `?` + stringify(query) : "");
+  }
+}
+
+export const crdApi = new VersionedKubeApi<CustomResourceDefinition>({
   kind: CustomResourceDefinition.kind,
   apiBase: "/apis/apiextensions.k8s.io/v1/customresourcedefinitions",
   isNamespaced: false,
