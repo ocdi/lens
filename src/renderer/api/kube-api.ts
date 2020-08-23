@@ -8,6 +8,7 @@ import { apiKube } from "./index";
 import { kubeWatchApi } from "./kube-watch-api";
 import { apiManager } from "./api-manager";
 import { createKubeApiURL, parseKubeApi } from "./kube-api-parse";
+import { getHostedCluster } from "../../common/cluster-store";
 
 export interface IKubeApiOptions<T extends KubeObject> {
   kind: string; // resource type within api-group, e.g. "Namespace"
@@ -173,5 +174,39 @@ export class KubeApi<T extends KubeObject = any> {
     return kubeWatchApi.subscribe(this);
   }
 }
+
+export class VersionedKubeApi<T extends KubeObject = any> extends KubeApi<T> {
+  
+  /** A map of the upper bounds of a version and the previous API version */
+  versionBelow: Record<string, string>;
+
+  constructor(protected options: IKubeApiOptions<T> & { versionBelow: Record<string, string>} ) {
+    super(options);
+
+    this.versionBelow = options.versionBelow;
+  }
+
+  getUrl({ name = "", namespace = "" } = {}, query?: Partial<IKubeApiQueryParams>) {
+    const { apiPrefix, apiGroup, apiVersion, apiResource } = this;
+
+    const clusterVersion = getHostedCluster().version;
+
+    let version = apiVersion;
+
+    for (const versionCheck of Object.keys(this.versionBelow)) {
+      if (clusterVersion < versionCheck) version = this.versionBelow[versionCheck];
+    }
+
+    const resourcePath = createKubeApiURL({
+      apiPrefix: apiPrefix,
+      apiVersion: apiGroup + '/' + version,
+      resource: apiResource,
+      namespace: this.isNamespaced ? namespace : undefined,
+      name: name,
+    });
+    return resourcePath + (query ? `?` + stringify(query) : "");
+  }
+}
+
 
 export * from "./kube-api-parse"
