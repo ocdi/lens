@@ -1,5 +1,5 @@
 import { KubeObject } from "../kube-object";
-import { VersionedKubeApi } from "../kube-api";
+import { VersionedKubeApi } from "../kube-api-versioned";
 import { crdResourcesURL } from "../../components/+custom-resources/crd.route";
 
 
@@ -151,6 +151,8 @@ export const crdApi = new VersionedKubeApi<CustomResourceDefinition>({
   kind: CustomResourceDefinition.kind,
   apiBase: "/apis/apiextensions.k8s.io/v1/customresourcedefinitions",
   isNamespaced: false,
-  objectConstructor: CustomResourceDefinition,
-  versionBelow: { 'v1.16': 'v1beta1' }
+  objectConstructor: CustomResourceDefinition
 });
+
+
+crdApi.getPreferredVersion();
